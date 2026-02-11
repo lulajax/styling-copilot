@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: fashion-backend
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  datasource:
+    url: jdbc:h2:mem:fashion;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+app:
+  jwt:
+    secret: "replace-this-with-a-very-long-dev-secret-key-2026-02-09"
+    access-expiration-seconds: 1800
+    refresh-expiration-seconds: 604800
+  auth:
+    username: stylist
+    password: stylist123
+  ai:
+    enabled: true
+    provider: openai
+    gemini:
+      base-url: https://generativelanguage.googleapis.com
+      model: gemini-2.5-flash
+      api-key: AIzaSyBcqb_aErT6-gmoPShwJYJtEIOFh6A9MDI
+      connect-timeout-ms: 30000
+      read-timeout-ms: 120000
+      proxy:
+        host: 127.0.0.1
+        port: 10808
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      model: ${OPENAI_MODEL:gpt-4o-mini}
+      api-key: ${OPENAI_API_KEY:}
+      connect-timeout-ms: 30000
+      read-timeout-ms: 120000
+      proxy:
+        host: ${OPENAI_PROXY_HOST:127.0.0.1}
+        port: ${OPENAI_PROXY_PORT:10808}
+  oss:
+    endpoint: ${OSS_ENDPOINT:oss-cn-beijing.aliyuncs.com}
+    bucket: ${OSS_BUCKET:}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    public-base-url: ${OSS_PUBLIC_BASE_URL:}
+    dir-prefix: ${OSS_DIR_PREFIX:fashion}
+  match:
+    rate-limit:
+      max-requests-per-second: 3
