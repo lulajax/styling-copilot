@@ -4,6 +4,7 @@ import com.company.fashion.modules.clothing.entity.Clothing;
 import com.company.fashion.modules.clothing.entity.ClothingType;
 import com.company.fashion.modules.match.dto.OutfitPreviewResponse;
 import com.company.fashion.modules.member.entity.Member;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.http.client.HttpClientBuilder;
@@ -417,6 +418,7 @@ abstract class AbstractLangChainAiClientSupport {
     private static final Type PREVIEW_TYPE = AiPreviewPayload.class;
     private static final int MAX_SCHEMA_NAME_LENGTH = 64;
     private static final Logger log = LoggerFactory.getLogger(StructuredOutputParser.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     private final ServiceOutputParser outputParser = new ServiceOutputParser();
 
@@ -436,8 +438,17 @@ abstract class AbstractLangChainAiClientSupport {
         }
         return Arrays.asList(result.getOutfits());
       } catch (Exception ex) {
-        logStructuredParseFailure(provider, "suggestion", response, ex, externalLogger);
-        throw new IllegalStateException(provider + " suggestion failed: invalid structured output: " + ex.getMessage(), ex);
+        try {
+          AiSuggestionPayload[] rawArray = parseSuggestionsFromRawArray(response);
+          if (rawArray == null || rawArray.length == 0) {
+            return List.of();
+          }
+          return Arrays.asList(rawArray);
+        } catch (Exception fallbackEx) {
+          fallbackEx.addSuppressed(ex);
+          logStructuredParseFailure(provider, "suggestion", response, fallbackEx, externalLogger);
+          throw new IllegalStateException(provider + " suggestion failed: invalid structured output: " + fallbackEx.getMessage(), fallbackEx);
+        }
       }
     }
 
@@ -495,6 +506,14 @@ abstract class AbstractLangChainAiClientSupport {
         base = base.substring(0, MAX_SCHEMA_NAME_LENGTH);
       }
       return base;
+    }
+
+    private AiSuggestionPayload[] parseSuggestionsFromRawArray(ChatResponse response) throws Exception {
+      String text = response == null || response.aiMessage() == null ? null : response.aiMessage().text();
+      if (text == null || text.isBlank()) {
+        return new AiSuggestionPayload[0];
+      }
+      return mapper.readValue(text, AiSuggestionPayload[].class);
     }
 
     private void logStructuredParseFailure(

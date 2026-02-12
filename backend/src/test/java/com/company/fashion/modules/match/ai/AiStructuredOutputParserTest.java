@@ -9,8 +9,12 @@ import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class AiStructuredOutputParserTest {
+
+    private static final Logger log = LoggerFactory.getLogger(AiStructuredOutputParserTest.class);
 
   private final AbstractLangChainAiClientSupport.StructuredOutputParser parser =
       new AbstractLangChainAiClientSupport.StructuredOutputParser();
@@ -25,7 +29,7 @@ class AiStructuredOutputParserTest {
     ChatResponse response = ChatResponse.builder().aiMessage(AiMessage.from(text)).build();
 
     List<AbstractLangChainAiClientSupport.AiSuggestionPayload> suggestions =
-        parser.parseSuggestions(response, "OpenAI");
+        parser.parseSuggestions(response, "OpenAI", log);
 
     assertThat(suggestions).hasSize(1);
     assertThat(suggestions.getFirst().getTopClothingId()).isEqualTo(1L);
@@ -45,7 +49,7 @@ class AiStructuredOutputParserTest {
         """;
     ChatResponse response = ChatResponse.builder().aiMessage(AiMessage.from(text)).build();
 
-    AbstractLangChainAiClientSupport.AiPreviewPayload preview = parser.parsePreview(response, "Gemini");
+    AbstractLangChainAiClientSupport.AiPreviewPayload preview = parser.parsePreview(response, "Gemini", log);
 
     assertThat(preview.getTitle()).isEqualTo("Look #1");
     assertThat(preview.getOutfitDescription()).isEqualTo("Simple and clean.");
@@ -56,7 +60,7 @@ class AiStructuredOutputParserTest {
   void shouldThrowWhenStructuredOutputIsInvalid() {
     ChatResponse response = ChatResponse.builder().aiMessage(AiMessage.from("not json")).build();
 
-    assertThatThrownBy(() -> parser.parseSuggestions(response, "OpenAI"))
+    assertThatThrownBy(() -> parser.parseSuggestions(response, "OpenAI", log))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("invalid structured output");
   }

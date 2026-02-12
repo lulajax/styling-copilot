@@ -58,17 +58,17 @@ app:
       connect-timeout-ms: 30000
       read-timeout-ms: 120000
       proxy:
-        host: ${GEMINI_PROXY_HOST:127.0.0.1}
-        port: ${GEMINI_PROXY_PORT:10808}
+        host: ${GEMINI_PROXY_HOST:}
+        port: ${GEMINI_PROXY_PORT:0}
     openai:
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
-      model: ${OPENAI_MODEL:gpt-4o-mini}
-      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:http://192.168.83.221:8045}
+      model: ${OPENAI_MODEL:gemini-3-flash}
+      api-key: ${OPENAI_API_KEY:sk-412eb26fc5a8413782d67c760b4e34f6}
       connect-timeout-ms: 30000
       read-timeout-ms: 120000
       proxy:
-        host: ${OPENAI_PROXY_HOST:127.0.0.1}
-        port: ${OPENAI_PROXY_PORT:10808}
+        host: ${OPENAI_PROXY_HOST:}
+        port: ${OPENAI_PROXY_PORT:0}
   oss:
     endpoint: ${OSS_ENDPOINT:oss-cn-beijing.aliyuncs.com}
     bucket: ${OSS_BUCKET:}
