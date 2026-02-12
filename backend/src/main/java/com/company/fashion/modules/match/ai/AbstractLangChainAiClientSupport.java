@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 abstract class AbstractLangChainAiClientSupport {
 
@@ -58,20 +59,30 @@ abstract class AbstractLangChainAiClientSupport {
   protected ChatResponse chatWithStructuredFallback(
       ChatModel model,
       List<dev.langchain4j.data.message.ChatMessage> messages,
-      int maxOutputTokens,
       Type responseType,
       String provider,
       String operation,
       Logger logger
   ) {
+    ResponseFormat responseFormat = structuredOutputParser.buildResponseFormatFor(responseType, provider, operation);
+    logger.info(
+        "{} {} request: format={}, schema={}, maxOutputTokens=unlimited, messageCount={}",
+        provider,
+        operation,
+        responseFormat.type(),
+        responseFormat.jsonSchema() == null ? "-" : responseFormat.jsonSchema().name(),
+        messages == null ? 0 : messages.size()
+    );
+
     ChatRequest schemaRequest = ChatRequest.builder()
         .messages(messages)
-        .maxOutputTokens(maxOutputTokens)
-        .responseFormat(structuredOutputParser.buildResponseFormatFor(responseType, provider, operation))
+        .responseFormat(responseFormat)
         .build();
 
     try {
-      return model.chat(schemaRequest);
+      ChatResponse schemaResponse = model.chat(schemaRequest);
+      logChatResponseMeta(logger, provider, operation, schemaResponse, "schema");
+      return schemaResponse;
     } catch (RuntimeException ex) {
       if (!isJsonSchemaUnsupported(ex)) {
         throw ex;
@@ -79,10 +90,11 @@ abstract class AbstractLangChainAiClientSupport {
       logger.warn("{} {} fallback to JSON mode: {}", provider, operation, ex.getMessage());
       ChatRequest jsonRequest = ChatRequest.builder()
           .messages(messages)
-          .maxOutputTokens(maxOutputTokens)
           .responseFormat(structuredOutputParser.jsonOnlyResponseFormat())
           .build();
-      return model.chat(jsonRequest);
+      ChatResponse jsonResponse = model.chat(jsonRequest);
+      logChatResponseMeta(logger, provider, operation, jsonResponse, "json");
+      return jsonResponse;
     }
   }
 
@@ -94,12 +106,12 @@ abstract class AbstractLangChainAiClientSupport {
     return structuredOutputParser.previewType();
   }
 
-  protected List<AiSuggestionPayload> parseSuggestionPayload(ChatResponse response, String provider) {
-    return structuredOutputParser.parseSuggestions(response, provider);
+  protected List<AiSuggestionPayload> parseSuggestionPayload(ChatResponse response, String provider, Logger logger) {
+    return structuredOutputParser.parseSuggestions(response, provider, logger);
   }
 
-  protected AiPreviewPayload parsePreviewPayload(ChatResponse response, String provider) {
-    return structuredOutputParser.parsePreview(response, provider);
+  protected AiPreviewPayload parsePreviewPayload(ChatResponse response, String provider, Logger logger) {
+    return structuredOutputParser.parsePreview(response, provider, logger);
   }
 
   protected void logResponsePreview(
@@ -123,6 +135,30 @@ abstract class AbstractLangChainAiClientSupport {
       normalized = normalized.substring(0, maxChars) + "...(truncated)";
     }
     logger.info("{} {} response preview={}", provider, operation, normalized);
+  }
+
+  protected void logChatResponseMeta(
+      Logger logger,
+      String provider,
+      String operation,
+      ChatResponse response,
+      String mode
+  ) {
+    if (response == null) {
+      logger.warn("{} {} {} response is null", provider, operation, mode);
+      return;
+    }
+    String text = response.aiMessage() == null ? null : response.aiMessage().text();
+    logger.info(
+        "{} {} {} response meta: model={}, finishReason={}, tokenUsage={}, textLength={}",
+        provider,
+        operation,
+        mode,
+        response.modelName(),
+        response.finishReason(),
+        response.tokenUsage(),
+        text == null ? 0 : text.length()
+    );
   }
 
   protected List<AiClientRouter.AiOutfitSuggestion> normalizeSuggestions(
@@ -377,8 +413,10 @@ abstract class AbstractLangChainAiClientSupport {
 
   static final class StructuredOutputParser {
 
-    private static final Type SUGGESTIONS_TYPE = AiSuggestionPayload[].class;
+    private static final Type SUGGESTIONS_TYPE = AiSuggestionEnvelope.class;
     private static final Type PREVIEW_TYPE = AiPreviewPayload.class;
+    private static final int MAX_SCHEMA_NAME_LENGTH = 64;
+    private static final Logger log = LoggerFactory.getLogger(StructuredOutputParser.class);
 
     private final ServiceOutputParser outputParser = new ServiceOutputParser();
 
@@ -390,19 +428,20 @@ abstract class AbstractLangChainAiClientSupport {
       return PREVIEW_TYPE;
     }
 
-    List<AiSuggestionPayload> parseSuggestions(ChatResponse response, String provider) {
+    List<AiSuggestionPayload> parseSuggestions(ChatResponse response, String provider, Logger externalLogger) {
       try {
-        AiSuggestionPayload[] result = (AiSuggestionPayload[]) outputParser.parse(response, SUGGESTIONS_TYPE);
-        if (result == null || result.length == 0) {
+        AiSuggestionEnvelope result = (AiSuggestionEnvelope) outputParser.parse(response, SUGGESTIONS_TYPE);
+        if (result == null || result.getOutfits() == null || result.getOutfits().length == 0) {
           return List.of();
         }
-        return Arrays.asList(result);
+        return Arrays.asList(result.getOutfits());
       } catch (Exception ex) {
+        logStructuredParseFailure(provider, "suggestion", response, ex, externalLogger);
         throw new IllegalStateException(provider + " suggestion failed: invalid structured output: " + ex.getMessage(), ex);
       }
     }
 
-    AiPreviewPayload parsePreview(ChatResponse response, String provider) {
+    AiPreviewPayload parsePreview(ChatResponse response, String provider, Logger externalLogger) {
       try {
         AiPreviewPayload result = (AiPreviewPayload) outputParser.parse(response, PREVIEW_TYPE);
         if (result == null) {
@@ -410,17 +449,26 @@ abstract class AbstractLangChainAiClientSupport {
         }
         return result;
       } catch (IllegalStateException ex) {
+        logStructuredParseFailure(provider, "preview", response, ex, externalLogger);
         throw ex;
       } catch (Exception ex) {
+        logStructuredParseFailure(provider, "preview", response, ex, externalLogger);
         throw new IllegalStateException(provider + " preview generation failed: invalid structured output: " + ex.getMessage(), ex);
       }
     }
 
     ResponseFormat buildResponseFormatFor(Type type, String provider, String operation) {
       JsonSchema schema = JsonSchemas.jsonSchemaFrom(type)
-          .orElseThrow(() -> new IllegalStateException(
-              provider + " " + operation + " failed: unable to derive JSON schema for " + type.getTypeName()
-          ));
+          .map(item -> JsonSchema.builder()
+              .name(sanitizeSchemaName(item.name(), provider, operation))
+              .rootElement(item.rootElement())
+              .build())
+          .orElse(null);
+
+      if (schema == null) {
+        return jsonOnlyResponseFormat();
+      }
+
       return ResponseFormat.builder()
           .type(ResponseFormatType.JSON)
           .jsonSchema(schema)
@@ -431,6 +479,55 @@ abstract class AbstractLangChainAiClientSupport {
       return ResponseFormat.builder()
           .type(ResponseFormatType.JSON)
           .build();
+    }
+
+    private String sanitizeSchemaName(String raw, String provider, String operation) {
+      String base = raw;
+      if (base == null || base.isBlank()) {
+        base = provider + "_" + operation + "_response";
+      }
+      base = base.replaceAll("[^a-zA-Z0-9_-]", "_");
+      base = base.replaceAll("_+", "_");
+      if (base.isBlank()) {
+        base = "structured_output";
+      }
+      if (base.length() > MAX_SCHEMA_NAME_LENGTH) {
+        base = base.substring(0, MAX_SCHEMA_NAME_LENGTH);
+      }
+      return base;
+    }
+
+    private void logStructuredParseFailure(
+        String provider,
+        String operation,
+        ChatResponse response,
+        Throwable ex,
+        Logger externalLogger
+    ) {
+      Logger target = externalLogger == null ? log : externalLogger;
+      String text = response == null || response.aiMessage() == null ? null : response.aiMessage().text();
+      target.error(
+          "{} {} structured parse failed: model={}, finishReason={}, tokenUsage={}, textLength={}, textTail={}",
+          provider,
+          operation,
+          response == null ? "-" : response.modelName(),
+          response == null ? "-" : response.finishReason(),
+          response == null ? "-" : response.tokenUsage(),
+          text == null ? 0 : text.length(),
+          tail(text, 320),
+          ex
+      );
+    }
+
+    private String tail(String text, int maxChars) {
+      if (text == null || text.isBlank()) {
+        return "<empty>";
+      }
+      String normalized = text.replace("\r", "\\r").replace("\n", "\\n");
+      if (normalized.length() <= maxChars) {
+        return normalized;
+      }
+      return "..."+ normalized.substring(normalized.length() - maxChars);
     }
   }
 
@@ -471,6 +568,19 @@ abstract class AbstractLangChainAiClientSupport {
 
     public void setReason(String reason) {
       this.reason = reason;
+    }
+  }
+
+  static final class AiSuggestionEnvelope {
+
+    private AiSuggestionPayload[] outfits;
+
+    public AiSuggestionPayload[] getOutfits() {
+      return outfits;
+    }
+
+    public void setOutfits(AiSuggestionPayload[] outfits) {
+      this.outfits = outfits;
     }
   }
 

@@ -2,7 +2,6 @@ package com.company.fashion.modules.match.controller;
 
 import com.company.fashion.common.api.PageResponse;
 import com.company.fashion.common.api.Result;
-import com.company.fashion.common.exception.BusinessException;
 import com.company.fashion.modules.match.dto.CreateMatchTaskRequest;
 import com.company.fashion.modules.match.dto.CreateMatchTaskResponse;
 import com.company.fashion.modules.match.dto.MatchTaskResultResponse;
@@ -57,7 +56,7 @@ public class MatchController {
       Principal principal
   ) {
     if (principal == null) {
-      throw new BusinessException(401, "Unauthorized");
+      throw new com.company.fashion.common.exception.BusinessException(401, "Unauthorized");
     }
     return Result.ok(matchTaskService.createTask(request, principal.getName(), acceptLanguage));
   }

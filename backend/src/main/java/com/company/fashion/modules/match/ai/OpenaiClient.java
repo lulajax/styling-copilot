@@ -85,7 +85,6 @@ public class OpenaiClient extends AbstractLangChainAiClientSupport {
       ChatResponse response = chatWithStructuredFallback(
           model,
           messages,
-          512,
           suggestionsType(),
           "OpenAI",
           "suggestion",
@@ -94,7 +93,7 @@ public class OpenaiClient extends AbstractLangChainAiClientSupport {
       logResponsePreview(log, "OpenAI", "suggestion", response, logResponse, logResponseMaxChars);
 
       List<AbstractLangChainAiClientSupport.AiSuggestionPayload> payloads =
-          parseSuggestionPayload(response, "OpenAI");
+          parseSuggestionPayload(response, "OpenAI", log);
       List<AiClientRouter.AiOutfitSuggestion> normalized = normalizeSuggestions(payloads, candidates);
       if (normalized.isEmpty()) {
         throw new IllegalStateException("OpenAI suggestion failed: response contains no valid outfit recommendations");
@@ -126,7 +125,6 @@ public class OpenaiClient extends AbstractLangChainAiClientSupport {
           ChatResponse response = chatWithStructuredFallback(
               model,
               previewMessages,
-              800,
               previewType(),
               "OpenAI",
               "preview generation",
@@ -135,7 +133,7 @@ public class OpenaiClient extends AbstractLangChainAiClientSupport {
           logResponsePreview(log, "OpenAI", "preview generation", response, logResponse, logResponseMaxChars);
 
           AbstractLangChainAiClientSupport.AiPreviewPayload payload =
-              parsePreviewPayload(response, "OpenAI");
+              parsePreviewPayload(response, "OpenAI", log);
           return normalizePreview(payload, "OpenAI");
         } catch (Throwable ex) {
           lastError = ex;

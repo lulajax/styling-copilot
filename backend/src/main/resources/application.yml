@@ -1,29 +1,30 @@
 spring:
   application:
     name: fashion-backend
-  profiles:
-    active: dev
   servlet:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
   datasource:
-    url: jdbc:h2:mem:fashion;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: jdbc:mysql://${MYSQL_HOST:192.168.84.30}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:fashion_db}?useSSL=${MYSQL_USE_SSL:false}&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:fashion_db}
+    password: ${MYSQL_PASSWORD:3p2JTnDMXDz4p4jf}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
     properties:
       hibernate:
         format_sql: true
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+        dialect: org.hibernate.dialect.MySQLDialect
 
 management:
   endpoints:
@@ -41,24 +42,24 @@ springdoc:
 
 app:
   jwt:
-    secret: "replace-this-with-a-very-long-dev-secret-key-2026-02-09"
+    secret: "${JWT_SECRET:replace-this-with-a-very-long-dev-secret-key-2026-02-09}"
     access-expiration-seconds: 1800
     refresh-expiration-seconds: 604800
   auth:
-    username: stylist
-    password: stylist123
+    username: ${AUTH_USERNAME:stylist}
+    password: ${AUTH_PASSWORD:stylist123}
   ai:
-    enabled: true
-    provider: openai
+    enabled: ${AI_ENABLED:true}
+    provider: ${AI_PROVIDER:openai}
     gemini:
       base-url: https://generativelanguage.googleapis.com
       model: gemini-2.5-flash
-      api-key: AIzaSyBcqb_aErT6-gmoPShwJYJtEIOFh6A9MDI
+      api-key: ${GEMINI_API_KEY:}
       connect-timeout-ms: 30000
       read-timeout-ms: 120000
       proxy:
-        host: 127.0.0.1
-        port: 10808
+        host: ${GEMINI_PROXY_HOST:127.0.0.1}
+        port: ${GEMINI_PROXY_PORT:10808}
     openai:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       model: ${OPENAI_MODEL:gpt-4o-mini}
@@ -77,4 +78,4 @@ app:
     dir-prefix: ${OSS_DIR_PREFIX:fashion}
   match:
     rate-limit:
-      max-requests-per-second: 3
+      max-requests-per-second: ${RATE_LIMIT:3}

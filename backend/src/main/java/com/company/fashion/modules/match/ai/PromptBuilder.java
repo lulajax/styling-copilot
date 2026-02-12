@@ -66,8 +66,10 @@ public class PromptBuilder {
 
       return """
           You are a fashion recommendation assistant for livestream styling.
-          Output JSON array only, no markdown.
-          Each item must have fields:
+          Output JSON object only, no markdown.
+          JSON object must contain field:
+          - outfits(array of recommendation items)
+          Each recommendation item must have fields:
           - topClothingId(number)
           - bottomClothingId(number)
           - score(number 0-100)

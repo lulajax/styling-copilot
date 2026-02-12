@@ -1,5 +1,6 @@
 package com.company.fashion.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -29,20 +30,29 @@ public class SecurityConfig {
         .sessionManagement(cfg -> cfg.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .exceptionHandling(cfg -> cfg
             .authenticationEntryPoint((request, response, authException) -> {
+              if (response.isCommitted()) {
+                return;
+              }
               response.setStatus(401);
               response.setContentType("application/json;charset=UTF-8");
               response.getWriter().write("{\"code\":401,\"message\":\"Unauthorized\",\"data\":null}");
             })
             .accessDeniedHandler((request, response, accessDeniedException) -> {
+              if (response.isCommitted()) {
+                return;
+              }
               response.setStatus(403);
               response.setContentType("application/json;charset=UTF-8");
               response.getWriter().write("{\"code\":403,\"message\":\"Forbidden\",\"data\":null}");
             })
         )
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
             .requestMatchers(
                 "/api/auth/**",
                 "/actuator/health",
+                "/error",
+                "/error/**",
                 "/h2-console/**",
                 "/v3/api-docs/**",
                 "/swagger-ui/**",

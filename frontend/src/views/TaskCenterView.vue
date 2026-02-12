@@ -54,8 +54,73 @@
                 <el-tag type="success">{{ $t('common.score') }}: {{ outfit.score }}</el-tag>
               </div>
             </template>
-            <p><strong>{{ $t('match.topClothingId') }}:</strong> {{ outfit.topClothingId }}</p>
-            <p><strong>{{ $t('match.bottomClothingId') }}:</strong> {{ outfit.bottomClothingId }}</p>
+            <div class="outfit-visual-grid">
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('common.member') }}</div>
+                <el-image
+                  v-if="getMemberById(detailMemberId)?.photoUrl"
+                  :src="getMemberById(detailMemberId)?.photoUrl || ''"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[getMemberById(detailMemberId)?.photoUrl || '']"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ getMemberById(detailMemberId)?.name || '-' }}</div>
+                <div v-if="detailMemberId" class="piece-id">ID: {{ detailMemberId }}</div>
+              </div>
+
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('match.topClothingId') }}</div>
+                <el-image
+                  v-if="getClothingById(outfit.topClothingId)?.imageUrl"
+                  :src="getClothingById(outfit.topClothingId)?.imageUrl || ''"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[getClothingById(outfit.topClothingId)?.imageUrl || '']"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ getClothingById(outfit.topClothingId)?.name || '-' }}</div>
+                <div class="piece-id">ID: {{ outfit.topClothingId }}</div>
+              </div>
+
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('match.bottomClothingId') }}</div>
+                <el-image
+                  v-if="getClothingById(outfit.bottomClothingId)?.imageUrl"
+                  :src="getClothingById(outfit.bottomClothingId)?.imageUrl || ''"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[getClothingById(outfit.bottomClothingId)?.imageUrl || '']"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ getClothingById(outfit.bottomClothingId)?.name || '-' }}</div>
+                <div class="piece-id">ID: {{ outfit.bottomClothingId }}</div>
+              </div>
+            </div>
             <p><strong>{{ $t('common.reason') }}:</strong> {{ outfit.reason }}</p>
             <el-button
               size="small"
@@ -107,22 +172,37 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { Picture } from '@element-plus/icons-vue';
 import { fetchTask, fetchTaskList, generateTaskOutfitPreview } from '@/api/match';
 import { fetchMembers } from '@/api/member';
-import type { MatchTaskDetail, MatchTaskSummary, MemberItem } from '@/types/domain';
+import { fetchAllClothing } from '@/api/clothing';
+import type { ClothingItem, MatchTaskDetail, MatchTaskSummary, MemberItem } from '@/types/domain';
 
 const { t } = useI18n();
 
 const tasks = ref<MatchTaskSummary[]>([]);
 const members = ref<MemberItem[]>([]);
+const allClothing = ref<ClothingItem[]>([]);
 const memberIdFilter = ref<number | undefined>();
 const detailVisible = ref(false);
 const detailTask = ref<MatchTaskDetail | null>(null);
+const detailMemberId = ref<number | null>(null);
 const previewLoadingOutfitNo = ref<number | null>(null);
 
 function getMemberName(memberId: number): string {
   const member = members.value.find(m => m.id === memberId);
   return member?.name ?? `ID:${memberId}`;
+}
+
+function getMemberById(memberId: number | null | undefined): MemberItem | null {
+  if (!memberId) {
+    return null;
+  }
+  return members.value.find((member) => member.id === memberId) ?? null;
+}
+
+function getClothingById(clothingId: number): ClothingItem | null {
+  return allClothing.value.find((item) => item.id === clothingId) ?? null;
 }
 
 async function loadMembers() {
@@ -134,11 +214,21 @@ async function loadMembers() {
   }
 }
 
+async function loadClothing() {
+  try {
+    const data = await fetchAllClothing(0, 1000);
+    allClothing.value = data.items;
+  } catch (error) {
+    ElMessage.error(t('clothing.loadFailed'));
+  }
+}
+
 async function load() {
   try {
     const [taskData] = await Promise.all([
       fetchTaskList(memberIdFilter.value, 0, 50),
-      members.value.length === 0 ? loadMembers() : Promise.resolve()
+      members.value.length === 0 ? loadMembers() : Promise.resolve(),
+      allClothing.value.length === 0 ? loadClothing() : Promise.resolve()
     ]);
     tasks.value = taskData.items;
   } catch (error) {
@@ -148,6 +238,7 @@ async function load() {
 
 async function viewResult(row: MatchTaskSummary) {
   try {
+    detailMemberId.value = row.memberId;
     const data = await fetchTask(row.taskId);
     detailTask.value = data;
     detailVisible.value = true;
@@ -179,7 +270,6 @@ function getScoreTagType(score: number): '' | 'success' | 'warning' | 'danger' {
 }
 
 onMounted(() => {
-  loadMembers();
   load();
 });
 </script>
@@ -200,6 +290,60 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.outfit-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.outfit-piece {
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafbfd;
+}
+
+.piece-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.piece-image {
+  width: 100%;
+  height: clamp(180px, 28vw, 320px);
+  border-radius: 8px;
+  display: block;
+  background: #f6f7f9;
+}
+
+.piece-image-placeholder {
+  width: 100%;
+  height: clamp(180px, 28vw, 320px);
+  border-radius: 8px;
+  background: #f2f3f5;
+  color: #b7bcc5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.piece-name {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.4;
+}
+
+.piece-id {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .warning-text {

@@ -70,14 +70,13 @@ public class GeminiClient extends AbstractLangChainAiClientSupport {
       ChatResponse response = chatWithStructuredFallback(
           model,
           messages,
-          512,
           suggestionsType(),
           "Gemini",
           "suggestion",
           log
       );
       List<AbstractLangChainAiClientSupport.AiSuggestionPayload> payloads =
-          parseSuggestionPayload(response, "Gemini");
+          parseSuggestionPayload(response, "Gemini", log);
       List<AiClientRouter.AiOutfitSuggestion> normalized = normalizeSuggestions(payloads, candidates);
       if (normalized.isEmpty()) {
         throw new IllegalStateException("Gemini suggestion failed: response contains no valid outfit recommendations");
@@ -104,13 +103,12 @@ public class GeminiClient extends AbstractLangChainAiClientSupport {
       ChatResponse response = chatWithStructuredFallback(
           model,
           previewMessages,
-          800,
           previewType(),
           "Gemini",
           "preview generation",
           log
       );
-      AbstractLangChainAiClientSupport.AiPreviewPayload payload = parsePreviewPayload(response, "Gemini");
+      AbstractLangChainAiClientSupport.AiPreviewPayload payload = parsePreviewPayload(response, "Gemini", log);
       return normalizePreview(payload, "Gemini");
     } catch (IllegalStateException ex) {
       throw ex;

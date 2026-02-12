@@ -16,8 +16,10 @@
           <el-image
             v-if="scope.row.photoUrl"
             :src="scope.row.photoUrl"
-            style="width: 56px; height: 56px; border-radius: 8px"
-            fit="cover"
+            class="member-photo-thumb"
+            fit="contain"
+            :preview-src-list="[scope.row.photoUrl]"
+            :preview-teleported="true"
           />
           <span v-else class="image-empty">{{ $t('members.noPhoto') }}</span>
         </template>
@@ -78,8 +80,10 @@
           <el-image
             v-if="dialogForm.photoUrl"
             :src="dialogForm.photoUrl"
-            style="margin-top: 10px; width: 96px; height: 96px; border-radius: 8px"
-            fit="cover"
+            class="member-photo-preview"
+            fit="contain"
+            :preview-src-list="[dialogForm.photoUrl]"
+            :preview-teleported="true"
           />
         </el-form-item>
 
@@ -586,3 +590,26 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.member-photo-thumb {
+  width: 56px;
+  height: 78px;
+  border-radius: 8px;
+  display: block;
+  background: #f6f7f9;
+}
+
+.member-photo-preview {
+  margin-top: 10px;
+  width: 160px;
+  height: 240px;
+  border-radius: 8px;
+  display: block;
+  background: #f6f7f9;
+}
+
+.image-empty {
+  color: #909399;
+}
+</style>

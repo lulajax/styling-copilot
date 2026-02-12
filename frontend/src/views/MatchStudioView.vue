@@ -135,8 +135,72 @@
                 </div>
               </div>
             </template>
-            <p><strong>{{ $t('match.topClothingId') }}:</strong> {{ outfit.topClothingId }}</p>
-            <p><strong>{{ $t('match.bottomClothingId') }}:</strong> {{ outfit.bottomClothingId }}</p>
+            <div class="outfit-visual-grid">
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('common.member') }}</div>
+                <el-image
+                  v-if="selectedMember?.photoUrl"
+                  :src="selectedMember.photoUrl"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[selectedMember.photoUrl]"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ selectedMember?.name || '-' }}</div>
+              </div>
+
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('match.topClothingId') }}</div>
+                <el-image
+                  v-if="getClothingById(outfit.topClothingId)?.imageUrl"
+                  :src="getClothingById(outfit.topClothingId)?.imageUrl || ''"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[getClothingById(outfit.topClothingId)?.imageUrl || '']"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ getClothingById(outfit.topClothingId)?.name || '-' }}</div>
+                <div class="piece-id">ID: {{ outfit.topClothingId }}</div>
+              </div>
+
+              <div class="outfit-piece">
+                <div class="piece-label">{{ $t('match.bottomClothingId') }}</div>
+                <el-image
+                  v-if="getClothingById(outfit.bottomClothingId)?.imageUrl"
+                  :src="getClothingById(outfit.bottomClothingId)?.imageUrl || ''"
+                  fit="contain"
+                  class="piece-image"
+                  :preview-src-list="[getClothingById(outfit.bottomClothingId)?.imageUrl || '']"
+                >
+                  <template #error>
+                    <div class="piece-image-placeholder">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+                <div v-else class="piece-image-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+                <div class="piece-name">{{ getClothingById(outfit.bottomClothingId)?.name || '-' }}</div>
+                <div class="piece-id">ID: {{ outfit.bottomClothingId }}</div>
+              </div>
+            </div>
             <p><strong>{{ $t('common.reason') }}:</strong> {{ outfit.reason }}</p>
             <template v-if="outfit.preview">
               <div class="preview-box">
@@ -259,6 +323,10 @@ async function loadInitial() {
 
 function onSelectionChange(rows: ClothingItem[]) {
   selectedClothingIds.value = rows.map((row) => row.id);
+}
+
+function getClothingById(clothingId: number): ClothingItem | null {
+  return clothingItems.value.find((item) => item.id === clothingId) ?? null;
 }
 
 // 主播切换时自动预选
@@ -526,6 +594,60 @@ onBeforeUnmount(() => {
 <style scoped>
 .outfit-card p {
   margin: 6px 0;
+}
+
+.outfit-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.outfit-piece {
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafbfd;
+}
+
+.piece-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.piece-image {
+  width: 100%;
+  height: clamp(180px, 28vw, 320px);
+  border-radius: 8px;
+  display: block;
+  background: #f6f7f9;
+}
+
+.piece-image-placeholder {
+  width: 100%;
+  height: clamp(180px, 28vw, 320px);
+  border-radius: 8px;
+  background: #f2f3f5;
+  color: #b7bcc5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.piece-name {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.4;
+}
+
+.piece-id {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #909399;
 }
 
 .error-text {
